@@ -598,6 +598,10 @@ h1 {
   line-height: 1.55;
 }
 
+.mobile-place-line {
+  display: none;
+}
+
 .prompt-box {
   grid-area: prompt;
   border: 1px solid rgba(37, 99, 235, 0.16);
@@ -1068,54 +1072,29 @@ h1 {
   .layout.has-result .result-topline,
   .layout.has-result .result-meta,
   .layout.has-result .coordinate-grid,
+  .layout.has-result .prompt-box,
   .layout.has-result .warning-list {
     display: none;
-  }
-
-  .layout.has-result .prompt-box {
-    padding: 10px;
-  }
-
-  .layout.has-result .prompt-box .oracle-play {
-    display: none;
-  }
-
-  .layout.has-result .prompt-box h3 {
-    font-size: 15px;
-  }
-
-  .layout.has-result .prompt-box > p {
-    font-size: 12.5px;
-    line-height: 1.45;
-  }
-
-  .layout.has-result .place-line {
-    margin-top: 8px;
-    padding: 7px 0 7px 9px;
-  }
-
-  .layout.has-result .place-line p {
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .layout.has-result .place-insight {
-    display: none;
-  }
-
-  .layout.has-result .oracle-play {
-    margin-top: 8px;
-    padding-top: 8px;
-  }
-
-  .layout.has-result .oracle-play p {
-    font-size: 12px;
   }
 
   .layout.has-result .result-card h2 {
     margin: 0;
     font-size: 19px;
     line-height: 1.25;
+  }
+
+  .layout.has-result .mobile-place-line {
+    display: block;
+    grid-column: 1 / -1;
+    margin: 2px 0 0;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .layout.has-result .mobile-place-line span {
+    color: #b45309;
+    font-weight: 900;
   }
 
   .layout.has-result .navigation-panel {

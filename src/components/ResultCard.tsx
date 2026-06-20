@@ -197,6 +197,9 @@ export function ResultCard({
         <p className="result-meta">
           生成距离 {result.poi.distanceMeters}m · {result.poi.publicAccessible ? "公开可达" : "可达性未知"} · {result.seed}
         </p>
+        <p className="mobile-place-line">
+          {result.oracleCard.placeLine} <span>{result.oracleCard.placeLineSource}</span>
+        </p>
         <div className="coordinate-grid">
           <div>
             <span>纬度</span>
