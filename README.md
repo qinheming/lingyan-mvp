@@ -91,6 +91,41 @@ Preview the production build:
 npm run preview
 ```
 
+## Cloudflare Pages Deployment
+
+LingYan can be deployed to Cloudflare Pages without owning or maintaining a server.
+
+| Setting | Value |
+|---|---|
+| Project name | `lingyan-mvp` |
+| Production branch | `main` |
+| Framework preset | `Vite` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `/` |
+
+Deployment steps:
+
+1. Open Cloudflare Dashboard.
+2. Go to **Workers & Pages**.
+3. Create a Pages project from Git.
+4. Connect `qinheming/lingyan-mvp`.
+5. Use the build settings above.
+6. Add the Amap environment variables if route preview is needed.
+7. Deploy.
+
+Cloudflare will provide a URL like:
+
+```text
+https://lingyan-mvp.pages.dev/
+```
+
+Manual CLI deploy is also available:
+
+```bash
+npm run deploy:cloudflare
+```
+
 ## Amap Configuration
 
 Create `.env.local` from `.env.example`:
