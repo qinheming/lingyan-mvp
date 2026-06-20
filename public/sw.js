@@ -1,5 +1,7 @@
 const CACHE_NAME = "lingyan-shell-v1";
-const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/lingyan-icon.svg"];
+const SHELL_ASSETS = ["./", "manifest.webmanifest", "lingyan-icon.svg"].map((path) =>
+  new URL(path, self.registration.scope).toString(),
+);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -32,7 +34,7 @@ self.addEventListener("fetch", (event) => {
       .catch(() =>
         caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          if (event.request.mode === "navigate") return caches.match("/");
+          if (event.request.mode === "navigate") return caches.match(self.registration.scope);
           return undefined;
         }),
       ),
