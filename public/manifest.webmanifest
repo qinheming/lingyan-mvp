@@ -1,0 +1,19 @@
+{
+  "name": "灵燕 LingYan",
+  "short_name": "灵燕",
+  "description": "灵燕 AI 移动体验：意图、坐标与导航。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fbff",
+  "theme_color": "#070b14",
+  "icons": [
+    {
+      "src": "/lingyan-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
