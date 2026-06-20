@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { intentLabels } from "../lib/intent";
 import { hasAmapConfig } from "../lib/amap";
 import { buildNavigationGuide, formatDistance } from "../lib/navigationGuide";
-import { AMAP_APP_INSTALL_URL, launchAmapNavigation } from "../lib/navigation";
+import { getAmapInstallUrl, getDeviceNavigationLabel, launchAmapNavigation } from "../lib/navigation";
 import { formatRouteDistance } from "../lib/routeSummary";
 import type { GeoPoint, LingYanResult, RouteMode, RoutePlanStatus, RouteSummary } from "../lib/types";
 
@@ -62,6 +62,8 @@ export function ResultCard({
   const hasRouteForMode = Boolean(currentRouteSummary);
   const routeUnavailable = currentRoutePlanStatus?.state === "unavailable" || currentRoutePlanStatus?.state === "error";
   const amapEnabled = hasAmapConfig();
+  const deviceLabel = getDeviceNavigationLabel();
+  const amapInstallUrl = getAmapInstallUrl();
 
   useEffect(() => {
     setSecondsLeft(initialSeconds);
@@ -101,7 +103,7 @@ export function ResultCard({
       },
       onFallback: () => {
         setNavigationStatus("amap_required");
-        setNavigationError("未检测到高德地图 App。请先安装高德地图，再回到灵燕重新开始导航。");
+        setNavigationError(`未检测到高德地图 App。请在${deviceLabel}上安装高德地图，再回到灵燕重新开始导航。`);
       },
     });
   }
@@ -146,7 +148,7 @@ export function ResultCard({
   const routeStatusText = !amapEnabled
     ? "完整导航由高德 App 提供；配置高德 Key 后可在灵燕内显示路线预览"
     : hasRouteForMode
-      ? `高德${routeModeLabels[routeMode]}路线已生成，点击按钮进入高德 App 原生导航`
+      ? `高德${routeModeLabels[routeMode]}路线已生成，点击按钮进入${deviceLabel}高德 App 原生导航`
       : routeUnavailable
         ? `高德${routeModeLabels[routeMode]}路线不可用。已显示直线方向，建议切换步行或重新呼唤`
         : currentRoutePlanStatus?.state === "loading"
@@ -222,7 +224,7 @@ export function ResultCard({
           {primaryActionText}
         </button>
         {shouldShowAmapInstall && (
-          <a href={AMAP_APP_INSTALL_URL} target="_blank" rel="noreferrer">
+          <a href={amapInstallUrl} target="_blank" rel="noreferrer">
             安装高德地图
           </a>
         )}

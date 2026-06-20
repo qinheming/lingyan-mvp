@@ -2,7 +2,7 @@
 
 **LingYan is a mobile-first AI oracle for intent, place, and native navigation handoff.**
 
-It turns a short human intention into a safe, reachable city coordinate, then hands the destination to Amap for the real navigation experience. On iPhone, LingYan is designed to run as a PWA: open it in Safari, add it to the Home Screen, and use it like a lightweight app without App Store distribution.
+It turns a short human intention into a safe, reachable city coordinate, then hands the destination to Amap for the real navigation experience. LingYan is designed to run as a mobile PWA: open it in a phone browser, add it to the Home Screen, and use it like a lightweight app without App Store distribution.
 
 ## Why It Exists
 
@@ -39,9 +39,9 @@ flowchart TD
 | Location access | ✅ | Browser geolocation with demo fallback |
 | Coordinate generation | ✅ | Deterministic safe-public-location style MVP |
 | Map display | ✅ | Leaflet fallback and Amap route view |
-| Amap route planning | ✅ | Walking, driving, and transit route modes |
-| Native Amap handoff | ✅ | iOS deeplink attempt |
-| Amap install fallback | ✅ | If Amap is missing, show install and copy-coordinate fallback |
+| Amap route planning | ✅ | Walking and driving previews, transit handed to Amap App |
+| Native Amap handoff | ✅ | iOS and Android/Huawei deeplink attempts |
+| Amap install fallback | ✅ | Device-aware install and copy-coordinate fallback |
 | PWA install support | ✅ | Manifest, icon, iOS meta tags, service worker |
 | Background navigation | ❌ | Not promised in PWA mode |
 | App Store distribution | ❌ | Intentionally not required for MVP |
@@ -56,7 +56,7 @@ flowchart LR
     App --> Map["Map components"]
     Map --> Amap["Amap JS API"]
     App --> Nav["Navigation launcher"]
-    Nav --> Native["Amap iOS deeplink"]
+    Nav --> Native["Amap iOS / Android deeplink"]
     Nav --> Fallback["Install/copy fallback"]
 ```
 
@@ -70,7 +70,7 @@ flowchart LR
 | Map fallback | Leaflet |
 | Route provider | Amap JS API |
 | PWA | Web App Manifest + Service Worker |
-| Native navigation | Amap app deeplink |
+| Native navigation | Amap app deeplink on iOS and Android/Huawei |
 
 ## Local Development
 
@@ -143,11 +143,20 @@ VITE_AMAP_SECURITY_JSCODE=
 
 Without an Amap key, LingYan still runs with its built-in map fallback, but Amap route preview is disabled. The primary navigation action still attempts to open the Amap app.
 
-## iPhone PWA Usage
+## Mobile PWA Usage
+
+### iPhone
 
 1. Open the deployed LingYan URL in Safari.
 2. Tap the Share button.
 3. Choose **Add to Home Screen**.
+4. Launch LingYan from the Home Screen.
+
+### Android / Huawei
+
+1. Open the deployed LingYan URL in Chrome, Huawei Browser, Edge, or another modern browser.
+2. Open the browser menu.
+3. Choose **Add to Home screen** or **Add to desktop**.
 4. Launch LingYan from the Home Screen.
 
 For the full navigation experience, install Amap on the phone. LingYan is responsible for intent and destination handoff; Amap is responsible for voice navigation, background navigation, lock-screen behavior, rerouting, and traffic-aware guidance.
@@ -168,7 +177,7 @@ LingYan is an MVP. It does not replace professional navigation apps.
 
 | Priority | Item |
 |---:|---|
-| P0 | Test Amap app handoff on real iPhone Safari |
+| P0 | Test Amap app handoff on real iPhone Safari and Android/Huawei browsers |
 | P0 | Move production hosting away from GitHub Pages to an owned domain/server |
 | P1 | Add clearer Add-to-Home-Screen onboarding |
 | P1 | Add location candidate confirmation |
