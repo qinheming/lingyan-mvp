@@ -1,6 +1,7 @@
 import { distanceMeters, offsetPoint } from "./geo";
 import { classifyIntent, poiPreferences } from "./intent";
 import { buildNavigationLinks } from "./navigation";
+import { buildOracleCard } from "./oracleCard";
 import { buildQuantumPrompt } from "./prompts";
 import { numberFromHash, sha256 } from "./random";
 import type { LingYanRequest, LingYanResult, PoiCandidate } from "./types";
@@ -93,6 +94,7 @@ export async function generateOracle(request: LingYanRequest): Promise<LingYanRe
       seconds: windowSeconds,
     },
     prompt: buildQuantumPrompt(intentClass, promptSeed),
+    oracleCard: buildOracleCard(intentClass, hash),
     navigation: buildNavigationLinks(coordinate),
     safety: {
       level: "safe_public",

@@ -64,6 +64,12 @@ export type LingYanResult = {
     seconds: number;
   };
   prompt: string;
+  oracleCard: {
+    title: string;
+    verse: string;
+    task: string;
+    echoQuestion: string;
+  };
   navigation: {
     google: string;
     amap: string;

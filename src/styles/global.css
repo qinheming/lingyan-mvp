@@ -606,10 +606,38 @@ h1 {
   background: #f8fbff;
 }
 
+.prompt-box h3 {
+  margin: 7px 0 0;
+  color: #132033;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
 .prompt-box p {
   margin: 8px 0 0;
   color: #253348;
   line-height: 1.62;
+}
+
+.oracle-play {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(37, 99, 235, 0.12);
+  padding-top: 10px;
+}
+
+.oracle-play b {
+  color: #b45309;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.oracle-play p {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 .coordinate-grid {
@@ -1011,9 +1039,30 @@ h1 {
   .layout.has-result .result-topline,
   .layout.has-result .result-meta,
   .layout.has-result .coordinate-grid,
-  .layout.has-result .prompt-box,
   .layout.has-result .warning-list {
     display: none;
+  }
+
+  .layout.has-result .prompt-box {
+    padding: 10px;
+  }
+
+  .layout.has-result .prompt-box h3 {
+    font-size: 15px;
+  }
+
+  .layout.has-result .prompt-box > p {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .layout.has-result .oracle-play {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .layout.has-result .oracle-play p {
+    font-size: 12px;
   }
 
   .layout.has-result .result-card h2 {

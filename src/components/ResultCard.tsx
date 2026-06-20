@@ -27,6 +27,22 @@ const routeModeLabels: Record<RouteMode, string> = {
 
 const routeModeOptions: RouteMode[] = ["walking", "driving", "transit"];
 
+async function writeClipboardText(text: string) {
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 function formatCountdown(seconds: number) {
   const safe = Math.max(0, seconds);
   const h = Math.floor(safe / 3600);
@@ -49,6 +65,7 @@ export function ResultCard({
   }, [result.resonanceWindow.expiresAt]);
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
   const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [navigationStatus, setNavigationStatus] = useState<NavigationStatus>("idle");
   const [navigationError, setNavigationError] = useState("");
   const [activeNavigationMode, setActiveNavigationMode] = useState<RouteMode | null>(null);
@@ -81,9 +98,22 @@ export function ResultCard({
 
   async function copyCoordinate() {
     const text = `${result.coordinate.lat},${result.coordinate.lng}`;
-    await navigator.clipboard?.writeText(text);
+    await writeClipboardText(text);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  async function copyShareText() {
+    const text = [
+      `我刚刚抽到灵燕「${result.oracleCard.title}」`,
+      result.oracleCard.verse,
+      `城市任务：${result.oracleCard.task}`,
+      `坐标：${result.poi.name}`,
+      window.location.origin,
+    ].join("\n");
+    await writeClipboardText(text);
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 1400);
   }
 
   function startLingYanNavigation() {
@@ -179,8 +209,15 @@ export function ResultCard({
       </div>
 
       <div className="prompt-box">
-        <span>微扰指令</span>
-        <p>{result.prompt}</p>
+        <span>今日灵签</span>
+        <h3>{result.oracleCard.title}</h3>
+        <p>{result.oracleCard.verse}</p>
+        <div className="oracle-play">
+          <b>城市任务</b>
+          <p>{result.oracleCard.task}</p>
+          <b>灵燕回声</b>
+          <p>{result.oracleCard.echoQuestion}</p>
+        </div>
       </div>
 
       <div className={`navigation-panel ${isNavigationAttemptActive ? "active" : ""} status-${navigationStatus}`}>
@@ -235,6 +272,9 @@ export function ResultCard({
         )}
         <button type="button" onClick={copyCoordinate}>
           {copied ? "已复制" : "复制坐标"}
+        </button>
+        <button type="button" onClick={() => void copyShareText()}>
+          {shareCopied ? "已复制" : "复制分享文案"}
         </button>
         <button type="button" onClick={onReset}>
           重新呼唤
