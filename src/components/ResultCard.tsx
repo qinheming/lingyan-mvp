@@ -90,6 +90,7 @@ export function ResultCard({
     setNavigationError("正在打开高德地图 App，完整导航、后台定位和语音播报将由高德提供。");
 
     launchAmapNavigation({
+      origin: userLocation,
       destination: result.coordinate,
       mode: routeMode,
       label: result.poi.name,

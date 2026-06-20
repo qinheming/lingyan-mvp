@@ -84,6 +84,7 @@ export function AmapRouteMap({
           strokeStyle: "dashed",
         });
         map.add([startMarker, targetMarker, fallbackLine]);
+        mapInstanceRef.current = map;
 
         let routeResolved = false;
         const routeTimer = window.setTimeout(() => {
@@ -98,17 +99,27 @@ export function AmapRouteMap({
           }
         }, 4200);
 
-        const pluginName =
-          routeMode === "driving" ? "AMap.Driving" : routeMode === "transit" ? "AMap.Transfer" : "AMap.Walking";
+        if (routeMode === "transit") {
+          routeResolved = true;
+          window.clearTimeout(routeTimer);
+          onRouteSummaryChange(null);
+          updateStatus({
+            mode: routeMode,
+            state: "unavailable",
+            message: "公交路线将由高德 App 基于实时城市与站点规划",
+          });
+          map.setFitView();
+          return;
+        }
+
+        const pluginName = routeMode === "driving" ? "AMap.Driving" : "AMap.Walking";
 
         AMap.plugin([pluginName], () => {
           if (cancelled) return;
           const routePlanner =
             routeMode === "driving"
               ? new AMap.Driving({ map, extensions: "all" })
-              : routeMode === "transit"
-                ? new AMap.Transfer({ map, city: "北京市", cityd: "北京市", extensions: "all" })
-                : new AMap.Walking({ map, extensions: "all" });
+              : new AMap.Walking({ map, extensions: "all" });
           routePlanner.search(start, end, (routeStatus, routeResult) => {
             routeResolved = true;
             window.clearTimeout(routeTimer);
@@ -133,8 +144,6 @@ export function AmapRouteMap({
             map.setFitView();
           });
         });
-
-        mapInstanceRef.current = map;
       } catch {
         updateStatus({
           mode: routeMode,

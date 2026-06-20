@@ -823,6 +823,11 @@ h1 {
 }
 
 @media (max-width: 980px) {
+  .app-shell.state-result {
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
   .layout {
     display: block;
     padding: 18px 14px 86px;
@@ -844,9 +849,45 @@ h1 {
     font-size: 28px;
   }
 
+  .layout.has-result {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    width: 100vw;
+    padding: 0;
+  }
+
+  .layout.has-result .left-pane {
+    display: none;
+  }
+
+  .layout.has-result .right-pane {
+    grid-column: 1;
+    min-height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    grid-template-rows: 1fr auto;
+  }
+
   .right-pane {
     min-height: 64vh;
     margin-top: 16px;
+  }
+
+  .layout.has-result .oracle-map,
+  .layout.has-result .amap-route-shell,
+  .layout.has-result .amap-route-map {
+    min-height: 100%;
+  }
+
+  .layout.has-result .amap-route-status {
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    max-width: calc(100vw - 24px);
+    border-radius: 12px;
+    white-space: normal;
   }
 
   .amap-route-shell {
@@ -855,13 +896,6 @@ h1 {
 
   .amap-route-panel {
     display: none;
-  }
-
-  .result-card {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    width: auto;
   }
 
   .coordinate-grid,
@@ -877,6 +911,89 @@ h1 {
       "nav"
       "actions"
       "warnings";
+  }
+
+  .layout.has-result .result-card {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 720;
+    width: auto;
+    max-height: min(52dvh, 430px);
+    overflow: auto;
+    border: 1px solid rgba(125, 145, 170, 0.24);
+    border-radius: 18px;
+    padding: 12px;
+    grid-template-areas:
+      "summary"
+      "nav"
+      "actions";
+    box-shadow: 0 20px 58px rgba(15, 23, 42, 0.24);
+  }
+
+  .layout.has-result .result-summary {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    align-items: start;
+  }
+
+  .layout.has-result .result-topline,
+  .layout.has-result .result-meta,
+  .layout.has-result .coordinate-grid,
+  .layout.has-result .prompt-box,
+  .layout.has-result .warning-list {
+    display: none;
+  }
+
+  .layout.has-result .result-card h2 {
+    margin: 0;
+    font-size: 19px;
+    line-height: 1.25;
+  }
+
+  .layout.has-result .navigation-panel {
+    grid-template-columns: 38px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .layout.has-result .navigation-compass {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+  }
+
+  .layout.has-result .navigation-panel strong {
+    font-size: 16px;
+  }
+
+  .layout.has-result .route-summary span {
+    display: none;
+  }
+
+  .layout.has-result .action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .layout.has-result .route-mode-tabs {
+    grid-column: 1 / -1;
+  }
+
+  .layout.has-result .primary-action {
+    grid-column: 1 / -1;
+    min-height: 50px;
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .layout.has-result .action-grid > button:last-child {
+    display: none;
+  }
+
+  .layout.has-result + .safety-notice {
+    display: none;
   }
 
   .safety-notice {

@@ -95,7 +95,7 @@ export function App() {
       {state === "collapsing" && <CollapseCanvas intent={intent} />}
 
       {state !== "collapsing" && (
-        <div className="layout">
+        <div className={`layout ${result && userLocation ? "has-result" : ""}`}>
           <section className="left-pane">
             <IntentPanel
               intent={intent}
