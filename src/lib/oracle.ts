@@ -94,7 +94,7 @@ export async function generateOracle(request: LingYanRequest): Promise<LingYanRe
       seconds: windowSeconds,
     },
     prompt: buildQuantumPrompt(intentClass, promptSeed),
-    oracleCard: buildOracleCard(intentClass, hash),
+    oracleCard: buildOracleCard(intentClass, selected.category, hash),
     navigation: buildNavigationLinks(coordinate),
     safety: {
       level: "safe_public",

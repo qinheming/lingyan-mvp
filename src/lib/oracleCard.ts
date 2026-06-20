@@ -8,6 +8,125 @@ type OracleCardOption = {
   echoQuestions: string[];
 };
 
+type PlaceLine = {
+  text: string;
+  source: string;
+  insight: string;
+};
+
+const PLACE_GROUPS: Record<string, string[]> = {
+  water: ["riverside_walkway", "bridge_view"],
+  green: ["park", "park_gate", "green_space", "garden", "flower_shop"],
+  study: ["bookstore", "university_area", "museum", "gallery"],
+  city: ["business_area", "shopping_mall", "bank_area", "square", "cafe", "sports_ground", "viewpoint"],
+  old: ["old_street", "temple_area"],
+};
+
+const PLACE_LINES: Record<keyof typeof PLACE_GROUPS | "default", PlaceLine[]> = {
+  water: [
+    {
+      text: "逝者如斯夫，不舍昼夜。",
+      source: "《论语》",
+      insight: "水边适合把停滞交给流动，先承认变化已经发生。",
+    },
+    {
+      text: "行到水穷处，坐看云起时。",
+      source: "王维",
+      insight: "当路走到尽头，答案可能不在前方，而在你愿意停下来的那一刻。",
+    },
+    {
+      text: "城市的水面会替你保管没有说出口的话。",
+      source: "灵燕",
+      insight: "靠近水时，不必急着解释自己，先让情绪有一个出口。",
+    },
+  ],
+  green: [
+    {
+      text: "久在樊笼里，复得返自然。",
+      source: "陶渊明",
+      insight: "绿地提醒你先回到身体，再处理那些复杂的事。",
+    },
+    {
+      text: "采菊东篱下，悠然见南山。",
+      source: "陶渊明",
+      insight: "平静不是逃离城市，而是在城市里重新找到远方感。",
+    },
+    {
+      text: "一小片树影，也能临时收留一个人。",
+      source: "灵燕",
+      insight: "如果今天太满，就把自己交给一处阴影和一口慢呼吸。",
+    },
+  ],
+  study: [
+    {
+      text: "学而不思则罔，思而不学则殆。",
+      source: "《论语》",
+      insight: "书店、展馆和校园适合把念头变成一个可追问的问题。",
+    },
+    {
+      text: "读书破万卷，下笔如有神。",
+      source: "杜甫",
+      insight: "灵感不是凭空降落，它常常来自你愿意多看一页、多停一步。",
+    },
+    {
+      text: "每个入口都像一本没有翻开的书。",
+      source: "灵燕",
+      insight: "到达后不要急着找答案，先找一个让你愿意继续读下去的细节。",
+    },
+  ],
+  city: [
+    {
+      text: "不积跬步，无以至千里。",
+      source: "《荀子》",
+      insight: "商业区和广场适合行动，今天先完成一个小而确定的推进。",
+    },
+    {
+      text: "知止而后有定。",
+      source: "《大学》",
+      insight: "城市越快，越需要先知道自己在哪里停下。",
+    },
+    {
+      text: "人群不是噪音，有时也是方向。",
+      source: "灵燕",
+      insight: "观察别人如何移动，你会看见自己真正想靠近什么。",
+    },
+  ],
+  old: [
+    {
+      text: "山重水复疑无路，柳暗花明又一村。",
+      source: "陆游",
+      insight: "老街和寺庙周边适合转弯，答案往往藏在不显眼的下一步。",
+    },
+    {
+      text: "曲径通幽处，禅房花木深。",
+      source: "常建",
+      insight: "安静的地方不替你决定，只帮你把杂音降下来。",
+    },
+    {
+      text: "旧路不是过去，是城市留下的慢速入口。",
+      source: "灵燕",
+      insight: "走进旧街时，试着用更慢的速度理解当下。",
+    },
+  ],
+  default: [
+    {
+      text: "既来之，则安之。",
+      source: "《论语》",
+      insight: "既然已经抵达，就先把这个坐标当成今天的答案之一。",
+    },
+    {
+      text: "万物静观皆自得。",
+      source: "程颢",
+      insight: "普通地点也有自己的提示，区别只在你是否愿意看见。",
+    },
+    {
+      text: "城市不会直接回答，它只把你带到可以发问的地方。",
+      source: "灵燕",
+      insight: "把到达当作问题的开始，而不是结果的结束。",
+    },
+  ],
+};
+
 const ORACLE_CARDS: Record<IntentClass, OracleCardOption[]> = {
   wealth: [
     {
@@ -95,12 +214,22 @@ const ORACLE_CARDS: Record<IntentClass, OracleCardOption[]> = {
   ],
 };
 
-export function buildOracleCard(intentClass: IntentClass, hash: string) {
+function getPlaceGroup(category: string): keyof typeof PLACE_GROUPS | "default" {
+  const match = Object.entries(PLACE_GROUPS).find(([, categories]) => categories.includes(category));
+  return (match?.[0] as keyof typeof PLACE_GROUPS | undefined) ?? "default";
+}
+
+export function buildOracleCard(intentClass: IntentClass, placeCategory: string, hash: string) {
   const options = ORACLE_CARDS[intentClass];
   const card = options[numberFromHash(hash, 20, 4) % options.length];
+  const placeLines = PLACE_LINES[getPlaceGroup(placeCategory)];
+  const placeLine = placeLines[numberFromHash(hash, 32, 4) % placeLines.length];
   return {
     title: card.title,
     verse: card.verse,
+    placeLine: placeLine.text,
+    placeLineSource: placeLine.source,
+    placeInsight: placeLine.insight,
     task: card.tasks[numberFromHash(hash, 24, 4) % card.tasks.length],
     echoQuestion: card.echoQuestions[numberFromHash(hash, 28, 4) % card.echoQuestions.length],
   };

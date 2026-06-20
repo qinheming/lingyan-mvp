@@ -107,6 +107,7 @@ export function ResultCard({
     const text = [
       `我刚刚抽到灵燕「${result.oracleCard.title}」`,
       result.oracleCard.verse,
+      `此地一句：${result.oracleCard.placeLine}`,
       `城市任务：${result.oracleCard.task}`,
       `坐标：${result.poi.name}`,
       window.location.origin,
@@ -212,6 +213,11 @@ export function ResultCard({
         <span>今日灵签</span>
         <h3>{result.oracleCard.title}</h3>
         <p>{result.oracleCard.verse}</p>
+        <blockquote className="place-line">
+          <p>{result.oracleCard.placeLine}</p>
+          <cite>{result.oracleCard.placeLineSource}</cite>
+        </blockquote>
+        <p className="place-insight">{result.oracleCard.placeInsight}</p>
         <div className="oracle-play">
           <b>城市任务</b>
           <p>{result.oracleCard.task}</p>

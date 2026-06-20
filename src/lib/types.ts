@@ -67,6 +67,9 @@ export type LingYanResult = {
   oracleCard: {
     title: string;
     verse: string;
+    placeLine: string;
+    placeLineSource: string;
+    placeInsight: string;
     task: string;
     echoQuestion: string;
   };

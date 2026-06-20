@@ -619,6 +619,35 @@ h1 {
   line-height: 1.62;
 }
 
+.place-line {
+  margin: 12px 0 0;
+  border-left: 3px solid #f8c86b;
+  padding: 8px 0 8px 10px;
+  background: rgba(255, 251, 235, 0.72);
+}
+
+.place-line p {
+  margin: 0;
+  color: #132033;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.place-line cite {
+  display: block;
+  margin-top: 5px;
+  color: #b45309;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.place-insight {
+  color: #475569;
+  font-size: 12.5px;
+}
+
 .oracle-play {
   display: grid;
   gap: 4px;
@@ -1017,7 +1046,7 @@ h1 {
     bottom: max(10px, env(safe-area-inset-bottom));
     z-index: 720;
     width: auto;
-    max-height: min(52dvh, 430px);
+    max-height: min(58dvh, 470px);
     overflow: auto;
     border: 1px solid rgba(125, 145, 170, 0.24);
     border-radius: 18px;
@@ -1047,6 +1076,10 @@ h1 {
     padding: 10px;
   }
 
+  .layout.has-result .prompt-box .oracle-play {
+    display: none;
+  }
+
   .layout.has-result .prompt-box h3 {
     font-size: 15px;
   }
@@ -1054,6 +1087,20 @@ h1 {
   .layout.has-result .prompt-box > p {
     font-size: 12.5px;
     line-height: 1.45;
+  }
+
+  .layout.has-result .place-line {
+    margin-top: 8px;
+    padding: 7px 0 7px 9px;
+  }
+
+  .layout.has-result .place-line p {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .layout.has-result .place-insight {
+    display: none;
   }
 
   .layout.has-result .oracle-play {
