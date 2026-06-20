@@ -6,6 +6,7 @@ import { LingYanLogo } from "./components/LingYanLogo";
 import { OracleMap } from "./components/OracleMap";
 import { ResultCard } from "./components/ResultCard";
 import { SafetyNotice } from "./components/SafetyNotice";
+import { WechatBrowserNotice } from "./components/WechatBrowserNotice";
 import { playAmbientTone } from "./lib/audio";
 import { hasAmapConfig } from "./lib/amap";
 import { getBrowserLocation } from "./lib/geo";
@@ -92,6 +93,7 @@ export function App() {
   return (
     <main className={`app-shell state-${state}`}>
       <div className="ambient-field" />
+      <WechatBrowserNotice />
       {state === "collapsing" && <CollapseCanvas intent={intent} />}
 
       {state !== "collapsing" && (
