@@ -1,8 +1,8 @@
 # LingYan MVP
 
-**LingYan is a mobile-first AI oracle for intent, place, and lightweight navigation.**
+**LingYan is a mobile-first AI oracle for intent, place, and native navigation handoff.**
 
-It turns a short human intention into a safe, reachable city coordinate, then guides the user there with a map, route context, and front-stage voice prompts. On iPhone, LingYan is designed to run as a PWA: open it in Safari, add it to the Home Screen, and use it like a lightweight app without App Store distribution.
+It turns a short human intention into a safe, reachable city coordinate, then hands the destination to Amap for the real navigation experience. On iPhone, LingYan is designed to run as a PWA: open it in Safari, add it to the Home Screen, and use it like a lightweight app without App Store distribution.
 
 ## Why It Exists
 
@@ -14,7 +14,7 @@ Most navigation apps start with a destination. LingYan starts with a thought.
 "Take me somewhere that fits this moment."
 ```
 
-LingYan interprets the intent, picks a public and approachable location nearby, creates a short "micro-action" prompt, and offers a navigation path. If Amap is available, LingYan can hand off to native navigation. If not, it keeps a built-in web navigation fallback.
+LingYan interprets the intent, picks a public and approachable location nearby, creates a short "micro-action" prompt, and opens Amap for native navigation. LingYan does not try to clone a full navigation app in the browser.
 
 ## Core Experience
 
@@ -28,8 +28,7 @@ flowchart TD
     E --> G["Start navigation"]
     G --> H{"Amap app opens?"}
     H -->|Yes| I["Native Amap navigation"]
-    H -->|No| J["Built-in web navigation"]
-    J --> K["Foreground voice guidance"]
+    H -->|No| J["Install Amap / copy coordinate"]
 ```
 
 ## Features
@@ -41,8 +40,8 @@ flowchart TD
 | Coordinate generation | ✅ | Deterministic safe-public-location style MVP |
 | Map display | ✅ | Leaflet fallback and Amap route view |
 | Amap route planning | ✅ | Walking, driving, and transit route modes |
-| Native Amap handoff | ✅ | iOS deeplink attempt with web fallback |
-| Voice prompts | ✅ | Foreground Web Speech API guidance |
+| Native Amap handoff | ✅ | iOS deeplink attempt |
+| Amap install fallback | ✅ | If Amap is missing, show install and copy-coordinate fallback |
 | PWA install support | ✅ | Manifest, icon, iOS meta tags, service worker |
 | Background navigation | ❌ | Not promised in PWA mode |
 | App Store distribution | ❌ | Intentionally not required for MVP |
@@ -58,8 +57,7 @@ flowchart LR
     Map --> Amap["Amap JS API"]
     App --> Nav["Navigation launcher"]
     Nav --> Native["Amap iOS deeplink"]
-    Nav --> BuiltIn["Built-in navigation fallback"]
-    BuiltIn --> Speech["Web Speech API"]
+    Nav --> Fallback["Install/copy fallback"]
 ```
 
 ## Tech Stack
@@ -72,6 +70,7 @@ flowchart LR
 | Map fallback | Leaflet |
 | Route provider | Amap JS API |
 | PWA | Web App Manifest + Service Worker |
+| Native navigation | Amap app deeplink |
 
 ## Local Development
 
@@ -107,7 +106,7 @@ VITE_AMAP_JS_KEY=
 VITE_AMAP_SECURITY_JSCODE=
 ```
 
-Without an Amap key, LingYan still runs with its built-in map fallback, but Amap route planning is disabled.
+Without an Amap key, LingYan still runs with its built-in map fallback, but Amap route preview is disabled. The primary navigation action still attempts to open the Amap app.
 
 ## iPhone PWA Usage
 
@@ -116,7 +115,7 @@ Without an Amap key, LingYan still runs with its built-in map fallback, but Amap
 3. Choose **Add to Home Screen**.
 4. Launch LingYan from the Home Screen.
 
-For best navigation fallback behavior, keep LingYan in the foreground. Native Amap navigation should be preferred for background/lock-screen navigation.
+For the full navigation experience, install Amap on the phone. LingYan is responsible for intent and destination handoff; Amap is responsible for voice navigation, background navigation, lock-screen behavior, rerouting, and traffic-aware guidance.
 
 ## Product Boundaries
 
@@ -128,18 +127,20 @@ LingYan is an MVP. It does not replace professional navigation apps.
 | No lock-screen voice navigation promise | Native apps are better suited for that |
 | No safety-critical routing promise | Users must follow real-world traffic and safety conditions |
 | No private-area guidance | Generated points should remain public and approachable |
+| No browser-based Amap clone | Full navigation UX is delegated to the Amap app |
 
 ## Roadmap
 
 | Priority | Item |
 |---:|---|
-| P0 | Stabilize iPhone PWA deployment |
 | P0 | Test Amap app handoff on real iPhone Safari |
+| P0 | Move production hosting away from GitHub Pages to an owned domain/server |
 | P1 | Add clearer Add-to-Home-Screen onboarding |
-| P1 | Improve route-step voice prompts |
 | P1 | Add location candidate confirmation |
+| P1 | Add Amap install detection guidance |
 | P2 | Add account/history support |
 | P2 | Add backend AI intent resolver |
+| P3 | Native iOS shell with Amap Navigation SDK if App Store/TestFlight becomes acceptable |
 
 ## Repository
 
@@ -149,4 +150,4 @@ This repository is the LingYan MVP frontend:
 qinheming/lingyan-mvp
 ```
 
-It is currently optimized for fast iteration by an independent builder: small surface area, mobile-first UI, and no App Store dependency.
+It is currently optimized for fast iteration by an independent builder: small surface area, mobile-first UI, and no App Store dependency. For production use without GitHub dependency, deploy the same build to an owned domain, VPS, Cloudflare Pages, or another controlled hosting target.

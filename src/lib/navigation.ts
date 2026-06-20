@@ -1,6 +1,7 @@
 import type { GeoPoint, RouteMode } from "./types";
 
 const AMAP_SOURCE_APPLICATION = "lingyan-ai";
+export const AMAP_APP_INSTALL_URL = "https://apps.apple.com/cn/app/id461703208";
 
 const amapUriModes: Record<RouteMode, string> = {
   walking: "walk",

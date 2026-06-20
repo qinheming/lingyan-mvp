@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { intentLabels } from "../lib/intent";
-import { getBrowserLocation } from "../lib/geo";
 import { hasAmapConfig } from "../lib/amap";
 import { buildNavigationGuide, formatDistance } from "../lib/navigationGuide";
-import { launchAmapNavigation } from "../lib/navigation";
+import { AMAP_APP_INSTALL_URL, launchAmapNavigation } from "../lib/navigation";
 import { formatRouteDistance } from "../lib/routeSummary";
-import { canSpeak, speakNavigation, stopSpeaking } from "../lib/speech";
 import type { GeoPoint, LingYanResult, RouteMode, RoutePlanStatus, RouteSummary } from "../lib/types";
 
-type NavigationStatus = "idle" | "launching_amap" | "locating" | "active" | "error";
+type NavigationStatus = "idle" | "launching_amap" | "amap_required";
 
 type ResultCardProps = {
   result: LingYanResult;
@@ -44,7 +42,6 @@ export function ResultCard({
   routeSummary,
   routePlanStatus,
   onRouteModeChange,
-  onLocationUpdate,
   onReset,
 }: ResultCardProps) {
   const initialSeconds = useMemo(() => {
@@ -55,13 +52,10 @@ export function ResultCard({
   const [navigationStatus, setNavigationStatus] = useState<NavigationStatus>("idle");
   const [navigationError, setNavigationError] = useState("");
   const [activeNavigationMode, setActiveNavigationMode] = useState<RouteMode | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const guide = useMemo(() => buildNavigationGuide(userLocation, result.coordinate), [userLocation, result.coordinate]);
-  const isNavigating =
-    navigationStatus === "launching_amap" ||
-    navigationStatus === "locating" ||
-    navigationStatus === "active" ||
-    navigationStatus === "error";
+  const isNavigationAttemptActive = navigationStatus !== "idle";
+  const isLaunchingAmap = navigationStatus === "launching_amap";
+  const shouldShowAmapInstall = navigationStatus === "amap_required";
   const displayedNavigationMode = activeNavigationMode ?? routeMode;
   const currentRoutePlanStatus = routePlanStatus?.mode === routeMode ? routePlanStatus : null;
   const currentRouteSummary = routeSummary?.mode === routeMode ? routeSummary : null;
@@ -83,36 +77,6 @@ export function ResultCard({
     setActiveNavigationMode(null);
   }, [result.id]);
 
-  useEffect(() => {
-    if (navigationStatus !== "active" && navigationStatus !== "error") return;
-    if (!navigator.geolocation) {
-      setNavigationError("当前浏览器不支持实时定位，已使用初始位置估算。");
-      setNavigationStatus("error");
-      return;
-    }
-
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        onLocationUpdate({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setNavigationStatus("active");
-        setNavigationError("");
-      },
-      () => {
-        setNavigationError("实时定位暂不可用，已使用最近一次位置估算。");
-        setNavigationStatus("error");
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 8000,
-        timeout: 12000,
-      },
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [navigationStatus, onLocationUpdate]);
-
   async function copyCoordinate() {
     const text = `${result.coordinate.lat},${result.coordinate.lng}`;
     await navigator.clipboard?.writeText(text);
@@ -120,41 +84,10 @@ export function ResultCard({
     window.setTimeout(() => setCopied(false), 1200);
   }
 
-  async function startBuiltInNavigation(reason?: string) {
-    setActiveNavigationMode(routeMode);
-    setNavigationStatus("locating");
-    setNavigationError(reason ?? `正在读取浏览器当前位置，准备进入${routeModeLabels[routeMode]}导航。`);
-    if (voiceEnabled) {
-      speakNavigation(
-        reason
-          ? `未检测到高德地图，已切换灵燕内置${routeModeLabels[routeMode]}导航，正在读取当前位置。`
-          : `灵燕${routeModeLabels[routeMode]}导航开始，正在读取当前位置。`,
-      );
-    }
-    try {
-      const location = await getBrowserLocation();
-      onLocationUpdate(location);
-      setNavigationStatus("active");
-      setNavigationError("");
-      if (voiceEnabled) {
-        speakNavigation(
-          `灵燕${routeModeLabels[routeMode]}导航已启动。请向${guide.direction}前进，剩余${formatDistance(
-            guide.distanceMeters,
-          )}。`,
-        );
-      }
-    } catch {
-      setNavigationStatus("error");
-      setNavigationError("无法读取当前位置。请在浏览器地址栏左侧允许定位；当前先用最近一次位置估算。");
-      if (voiceEnabled) speakNavigation("无法读取当前位置。请允许浏览器定位，当前先使用最近一次位置估算。");
-    }
-  }
-
   function startLingYanNavigation() {
     setActiveNavigationMode(routeMode);
     setNavigationStatus("launching_amap");
-    setNavigationError(`正在尝试打开高德地图；如果未安装，将自动进入灵燕内置${routeModeLabels[routeMode]}导航。`);
-    if (voiceEnabled) speakNavigation(`正在尝试打开高德地图${routeModeLabels[routeMode]}导航。`);
+    setNavigationError("正在打开高德地图 App，完整导航、后台定位和语音播报将由高德提供。");
 
     launchAmapNavigation({
       destination: result.coordinate,
@@ -166,37 +99,21 @@ export function ResultCard({
         setActiveNavigationMode(null);
       },
       onFallback: () => {
-        void startBuiltInNavigation("未检测到高德地图，已进入灵燕内置导航。请保持页面在前台。");
+        setNavigationStatus("amap_required");
+        setNavigationError("未检测到高德地图 App。请先安装高德地图，再回到灵燕重新开始导航。");
       },
     });
   }
 
-  function exitLingYanNavigation() {
+  function resetNavigationAttempt() {
     setNavigationStatus("idle");
     setNavigationError("");
     setActiveNavigationMode(null);
-    if (voiceEnabled) speakNavigation("已退出灵燕导航。");
-    else stopSpeaking();
   }
 
   function changeRouteMode(mode: RouteMode) {
     onRouteModeChange(mode);
-    if (isNavigating) {
-      setActiveNavigationMode(mode);
-      setNavigationStatus("active");
-      setNavigationError("");
-      if (voiceEnabled) speakNavigation(`已切换为${routeModeLabels[mode]}导航，正在重新规划路线。`);
-      return;
-    }
-    setActiveNavigationMode(null);
-    if (voiceEnabled) speakNavigation(`已选择${routeModeLabels[mode]}路线。`);
-  }
-
-  function toggleVoice() {
-    const next = !voiceEnabled;
-    setVoiceEnabled(next);
-    if (next) speakNavigation("语音播报已开启。");
-    else stopSpeaking();
+    resetNavigationAttempt();
   }
 
   const navLabel =
@@ -204,25 +121,17 @@ export function ResultCard({
       ? "已到达灵燕坐标附近"
       : navigationStatus === "launching_amap"
         ? `正在打开高德${routeModeLabels[displayedNavigationMode]}导航`
-        : navigationStatus === "locating"
-          ? `正在进入${routeModeLabels[displayedNavigationMode]}导航`
-          : isNavigating && routeUnavailable && activeNavigationMode === routeMode
-            ? `${routeModeLabels[displayedNavigationMode]}路线不可用`
-            : navigationStatus === "active"
-              ? `${routeModeLabels[displayedNavigationMode]}导航中`
-              : navigationStatus === "error"
-                ? "定位需要确认"
-                : `待开始${routeModeLabels[routeMode]}导航`;
+        : navigationStatus === "amap_required"
+          ? "需要安装高德地图"
+          : `待打开高德${routeModeLabels[routeMode]}导航`;
 
   const navHeading = guide.arrived
     ? "完成观测"
     : navigationStatus === "launching_amap"
-      ? "高德优先"
-      : navigationStatus === "locating"
-        ? `正在校准${routeModeLabels[displayedNavigationMode]}起点`
-        : isNavigating && routeUnavailable && activeNavigationMode === routeMode
-          ? "当前为直线辅助"
-          : `向${guide.direction}前进`;
+      ? "交给高德"
+      : navigationStatus === "amap_required"
+        ? "安装后重试"
+        : `向${guide.direction}前进`;
   const distanceLine =
     currentRouteSummary
       ? `高德路线 ${formatRouteDistance(currentRouteSummary.distanceMeters)} · 约 ${currentRouteSummary.durationMinutes} 分钟`
@@ -232,17 +141,11 @@ export function ResultCard({
   const primaryActionText =
     navigationStatus === "launching_amap"
       ? "正在打开高德..."
-      : navigationStatus === "locating"
-        ? "正在读取当前位置..."
-        : isNavigating
-          ? `刷新${routeModeLabels[routeMode]}导航`
-          : `开始${routeModeLabels[routeMode]}导航`;
+      : `打开高德${routeModeLabels[routeMode]}导航`;
   const routeStatusText = !amapEnabled
-    ? "当前为灵燕内置导航；配置高德 Key 后启用高德路线"
+    ? "完整导航由高德 App 提供；配置高德 Key 后可在灵燕内显示路线预览"
     : hasRouteForMode
-      ? isNavigating && activeNavigationMode === routeMode
-        ? `高德${routeModeLabels[routeMode]}路线已生成，正在使用${routeModeLabels[routeMode]}导航`
-        : `高德${routeModeLabels[routeMode]}路线已生成，点击开始进入${routeModeLabels[routeMode]}导航`
+      ? `高德${routeModeLabels[routeMode]}路线已生成，点击按钮进入高德 App 原生导航`
       : routeUnavailable
         ? `高德${routeModeLabels[routeMode]}路线不可用。已显示直线方向，建议切换步行或重新呼唤`
         : currentRoutePlanStatus?.state === "loading"
@@ -277,7 +180,7 @@ export function ResultCard({
         <p>{result.prompt}</p>
       </div>
 
-      <div className={`navigation-panel ${isNavigating ? "active" : ""} status-${navigationStatus}`}>
+      <div className={`navigation-panel ${isNavigationAttemptActive ? "active" : ""} status-${navigationStatus}`}>
         <div className="navigation-compass" style={{ transform: `rotate(${guide.bearingDegrees}deg)` }}>
           ↑
         </div>
@@ -312,19 +215,21 @@ export function ResultCard({
         <button
           className="primary-action"
           type="button"
-          disabled={navigationStatus === "launching_amap" || navigationStatus === "locating"}
+          disabled={isLaunchingAmap}
           onClick={startLingYanNavigation}
         >
           {primaryActionText}
         </button>
-        {isNavigating && (
-          <button type="button" onClick={exitLingYanNavigation}>
-            退出导航
+        {shouldShowAmapInstall && (
+          <a href={AMAP_APP_INSTALL_URL} target="_blank" rel="noreferrer">
+            安装高德地图
+          </a>
+        )}
+        {isNavigationAttemptActive && (
+          <button type="button" onClick={resetNavigationAttempt}>
+            取消
           </button>
         )}
-        <button type="button" disabled={!canSpeak()} onClick={toggleVoice}>
-          {voiceEnabled ? "关闭语音" : "开启语音"}
-        </button>
         <button type="button" onClick={copyCoordinate}>
           {copied ? "已复制" : "复制坐标"}
         </button>
