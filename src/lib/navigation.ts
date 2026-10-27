@@ -38,14 +38,14 @@ function encodeLabel(label: string): string {
   return encodeURIComponent(normalizeLabel(label));
 }
 
-export function buildNavigationLinks(point: GeoPoint) {
-  const label = encodeLabel("灵燕坐标");
+export function buildNavigationLinks(point: GeoPoint, poiName = "灵燕坐标") {
+  const label = encodeLabel(poiName);
   return {
     google: `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`,
     amap: buildAmapUniversalNavigationUrl({
       destination: point,
       mode: "walking",
-      label: "灵燕坐标",
+      label: poiName,
     }),
     baidu: `https://api.map.baidu.com/marker?location=${point.lat},${point.lng}&title=${label}&content=${label}&output=html`,
   };

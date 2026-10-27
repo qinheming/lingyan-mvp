@@ -39,40 +39,50 @@ export type LingYanRequest = {
   location: GeoPoint;
 };
 
+export type PoiSource = "amap" | "osm" | "deterministic";
+
 export type PoiCandidate = {
   id: string;
   name: string;
+  address?: string;
   category: string;
   location: GeoPoint;
   publicAccessible: boolean;
   safety: "safe_public" | "unknown" | "blocked";
+  source?: PoiSource;
+};
+
+export type OracleCardData = {
+  title: string;
+  verse: string;
+  placeLine: string;
+  placeLineSource: string;
+  placeInsight: string;
+  task: string;
+  echoQuestion: string;
+  aiGenerated?: boolean;
 };
 
 export type LingYanResult = {
   id: string;
+  createdAt?: string;
   intent: string;
   intentClass: IntentClass;
   coordinate: GeoPoint;
   poi: {
     name: string;
+    address?: string;
     category: string;
     distanceMeters: number;
     publicAccessible: boolean;
+    source?: PoiSource;
   };
   resonanceWindow: {
     expiresAt: string;
     seconds: number;
   };
   prompt: string;
-  oracleCard: {
-    title: string;
-    verse: string;
-    placeLine: string;
-    placeLineSource: string;
-    placeInsight: string;
-    task: string;
-    echoQuestion: string;
-  };
+  oracleCard: OracleCardData;
   navigation: {
     google: string;
     amap: string;
@@ -83,4 +93,20 @@ export type LingYanResult = {
     warnings: string[];
   };
   seed: string;
+};
+
+export type OracleHistoryEntry = {
+  id: string;
+  createdAt: string;
+  intent: string;
+  intentClass: IntentClass;
+  poiName: string;
+  poiAddress?: string;
+  coordinate: GeoPoint;
+  cardTitle: string;
+  verse: string;
+  task: string;
+  echoQuestion: string;
+  echoAnswer?: string;
+  arrivedAt?: string;
 };

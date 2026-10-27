@@ -1,28 +1,32 @@
+import { useState } from "react";
 import { LingYanLogo } from "./LingYanLogo";
-import type { RadiusKm } from "../lib/types";
+import type { OracleHistoryEntry, RadiusKm } from "../lib/types";
 
 type IntentPanelProps = {
   intent: string;
   radiusKm: RadiusKm;
   isBusy: boolean;
   error: string;
+  history: OracleHistoryEntry[];
   onIntentChange: (value: string) => void;
   onRadiusChange: (value: RadiusKm) => void;
   onSubmit: () => void;
 };
 
 const radiusOptions: RadiusKm[] = [1, 3, 5];
-const quickIntents = ["财富", "灵感", "重逢", "破局", "平静"];
+const quickIntents = ["财富", "灵感", "重逢", "破局", "平静", "吹吹风", "散心"];
 
 export function IntentPanel({
   intent,
   radiusKm,
   isBusy,
   error,
+  history,
   onIntentChange,
   onRadiusChange,
   onSubmit,
 }: IntentPanelProps) {
+  const [showHistory, setShowHistory] = useState(false);
   const tooLong = intent.length > 20;
   const disabled = isBusy || !intent.trim() || tooLong;
 
@@ -81,6 +85,33 @@ export function IntentPanel({
       <button className="summon-button" type="button" disabled={disabled} onClick={onSubmit}>
         {isBusy ? "灵燕正在飞行..." : "呼唤灵燕"}
       </button>
+
+      {history.length > 0 && (
+        <div className="history-drawer">
+          <button
+            type="button"
+            className="history-toggle"
+            onClick={() => setShowHistory((v) => !v)}
+          >
+            <span>寻燕足迹 ({history.length})</span>
+            <span>{showHistory ? "收起 ↑" : "展开 ↓"}</span>
+          </button>
+          {showHistory && (
+            <ul className="history-list">
+              {history.slice(0, 6).map((item) => (
+                <li key={item.id} onClick={() => onIntentChange(item.intent)}>
+                  <div className="history-item-top">
+                    <b>{item.cardTitle} · {item.poiName}</b>
+                    <small>{item.createdAt.slice(5, 10)}</small>
+                  </div>
+                  <p>念头：「{item.intent}」 · {item.verse}</p>
+                  {item.echoAnswer && <em>回声：{item.echoAnswer}</em>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <p className="safety-line">
         灵燕提供城市探索提示，不保证财富、情感、健康、职业等现实结果。请遵守交通规则，不进入危险或私人区域。

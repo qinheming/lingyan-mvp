@@ -24,8 +24,19 @@ type AmapDriving = AmapWalking;
 type AmapTransfer = new (options: { map: AmapMap; panel?: string; city?: string; cityd?: string; extensions?: string }) => {
   search: (start: AmapLngLat, end: AmapLngLat, callback: (status: string, result: unknown) => void) => void;
 };
+type AmapPlaceSearch = new (options: { pageSize?: number; pageIndex?: number; extensions?: string }) => {
+  searchNearBy: (
+    keyword: string,
+    center: AmapLngLat,
+    radius: number,
+    callback: (status: string, result: unknown) => void,
+  ) => void;
+};
+type AmapCitySearch = new () => {
+  getLocalCity: (callback: (status: string, result: { city?: string }) => void) => void;
+};
 
-type AmapNamespace = {
+export type AmapNamespace = {
   Map: new (container: HTMLDivElement, options: { center: AmapLngLat; zoom: number; viewMode?: string }) => AmapMap;
   Marker: AmapMarker;
   Pixel: AmapPixel;
@@ -33,6 +44,8 @@ type AmapNamespace = {
   Walking: AmapWalking;
   Driving: AmapDriving;
   Transfer: AmapTransfer;
+  PlaceSearch: AmapPlaceSearch;
+  CitySearch: AmapCitySearch;
   plugin: (plugins: string[], callback: () => void) => void;
 };
 
@@ -40,6 +53,7 @@ type AmapWindow = Window & {
   AMap?: AmapNamespace;
   _AMapSecurityConfig?: {
     securityJsCode?: string;
+    serviceHost?: string;
   };
 };
 
@@ -53,6 +67,7 @@ export function getAmapConfig() {
   return {
     key: import.meta.env.VITE_AMAP_JS_KEY as string | undefined,
     securityJsCode: import.meta.env.VITE_AMAP_SECURITY_JSCODE as string | undefined,
+    serviceHost: import.meta.env.VITE_AMAP_SERVICE_HOST as string | undefined,
   };
 }
 
@@ -62,7 +77,7 @@ export function toAmapLngLat(point: GeoPoint): AmapLngLat {
 
 export function loadAmap(): Promise<AmapNamespace> {
   if (amapPromise) return amapPromise;
-  const { key, securityJsCode } = getAmapConfig();
+  const { key, securityJsCode, serviceHost } = getAmapConfig();
   if (!key) return Promise.reject(new Error("AMAP_KEY_MISSING"));
 
   amapPromise = new Promise((resolve, reject) => {
@@ -71,12 +86,14 @@ export function loadAmap(): Promise<AmapNamespace> {
       resolve(amapWindow.AMap);
       return;
     }
-    if (securityJsCode) {
+    if (serviceHost) {
+      amapWindow._AMapSecurityConfig = { serviceHost };
+    } else if (securityJsCode) {
       amapWindow._AMapSecurityConfig = { securityJsCode };
     }
 
     const script = document.createElement("script");
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Walking,AMap.Driving,AMap.Transfer`;
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Walking,AMap.Driving,AMap.Transfer,AMap.PlaceSearch,AMap.CitySearch`;
     script.async = true;
     script.onload = () => {
       if (amapWindow.AMap) resolve(amapWindow.AMap);
@@ -87,4 +104,26 @@ export function loadAmap(): Promise<AmapNamespace> {
   });
 
   return amapPromise;
+}
+
+export async function detectAmapCity(AMap: AmapNamespace): Promise<string> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve("北京市"), 1800);
+    try {
+      AMap.plugin(["AMap.CitySearch"], () => {
+        const citySearch = new AMap.CitySearch();
+        citySearch.getLocalCity((status, result) => {
+          window.clearTimeout(timer);
+          if (status === "complete" && result?.city) {
+            resolve(result.city);
+          } else {
+            resolve("上海市");
+          }
+        });
+      });
+    } catch {
+      window.clearTimeout(timer);
+      resolve("上海市");
+    }
+  });
 }

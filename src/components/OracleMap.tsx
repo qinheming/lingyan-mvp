@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
+import { gcj02ToWgs84 } from "../lib/geo";
 import { LingYanLogo } from "./LingYanLogo";
 import type { GeoPoint, LingYanResult } from "../lib/types";
 
@@ -22,12 +23,15 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
       instanceRef.current = null;
     }
 
+    const targetWgs = gcj02ToWgs84(result.coordinate);
+    const userWgs = gcj02ToWgs84(userLocation);
+
     const map = L.map(mapRef.current, {
       zoomControl: false,
       attributionControl: false,
       dragging: true,
       scrollWheelZoom: false,
-    }).setView([result.coordinate.lat, result.coordinate.lng], 15);
+    }).setView([targetWgs.lat, targetWgs.lng], 15);
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
@@ -51,9 +55,9 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
       iconAnchor: [9, 9],
     });
 
-    L.marker([result.coordinate.lat, result.coordinate.lng], { icon: swallowIcon }).addTo(map);
-    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(map);
-    L.circle([result.coordinate.lat, result.coordinate.lng], {
+    L.marker([targetWgs.lat, targetWgs.lng], { icon: swallowIcon }).addTo(map);
+    userMarkerRef.current = L.marker([userWgs.lat, userWgs.lng], { icon: userIcon }).addTo(map);
+    L.circle([targetWgs.lat, targetWgs.lng], {
       radius: 160,
       color: "#2563eb",
       fillColor: "#60a5fa",
@@ -62,8 +66,8 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
     }).addTo(map);
     routeRef.current = L.polyline(
       [
-        [userLocation.lat, userLocation.lng],
-        [result.coordinate.lat, result.coordinate.lng],
+        [userWgs.lat, userWgs.lng],
+        [targetWgs.lat, targetWgs.lng],
       ],
       {
         color: "#b45309",
@@ -74,8 +78,8 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
     ).addTo(map);
     map.fitBounds(
       L.latLngBounds([
-        [userLocation.lat, userLocation.lng],
-        [result.coordinate.lat, result.coordinate.lng],
+        [userWgs.lat, userWgs.lng],
+        [targetWgs.lat, targetWgs.lng],
       ]),
       {
         maxZoom: 15,
@@ -84,7 +88,7 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
     );
     L.control
       .attribution({
-        prefix: "Leaflet · CARTO",
+        prefix: "Leaflet · CARTO (WGS-84 Calibrated)",
       })
       .addTo(map);
 
@@ -100,10 +104,12 @@ export function OracleMap({ userLocation, result }: OracleMapProps) {
   useEffect(() => {
     const map = instanceRef.current;
     if (!map || !userMarkerRef.current || !routeRef.current) return;
-    userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+    const targetWgs = gcj02ToWgs84(result.coordinate);
+    const userWgs = gcj02ToWgs84(userLocation);
+    userMarkerRef.current.setLatLng([userWgs.lat, userWgs.lng]);
     routeRef.current.setLatLngs([
-      [userLocation.lat, userLocation.lng],
-      [result.coordinate.lat, result.coordinate.lng],
+      [userWgs.lat, userWgs.lng],
+      [targetWgs.lat, targetWgs.lng],
     ]);
   }, [result.coordinate, userLocation]);
 

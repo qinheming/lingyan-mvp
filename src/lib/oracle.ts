@@ -1,9 +1,11 @@
+import { generateAiOracleCard, hasAiOracleConfig } from "./aiOracle";
 import { distanceMeters, offsetPoint } from "./geo";
 import { classifyIntent, poiPreferences } from "./intent";
 import { buildNavigationLinks } from "./navigation";
 import { buildOracleCard } from "./oracleCard";
 import { buildQuantumPrompt } from "./prompts";
 import { numberFromHash, sha256 } from "./random";
+import { searchAmapNearbyPois, searchOsmNearbyPois } from "./realPoi";
 import type { LingYanRequest, LingYanResult, PoiCandidate } from "./types";
 
 const SAFE_NAMES: Record<string, string[]> = {
@@ -31,7 +33,14 @@ const SAFE_NAMES: Record<string, string[]> = {
 
 const WARNINGS = ["请遵守交通规则", "请勿进入私人、危险或禁止区域", "如现场不适合停留，请重新呼唤灵燕"];
 
-function makeCandidate(originLat: number, originLng: number, category: string, idx: number, hash: string, radiusM: number): PoiCandidate {
+function makeCandidate(
+  originLat: number,
+  originLng: number,
+  category: string,
+  idx: number,
+  hash: string,
+  radiusM: number,
+): PoiCandidate {
   const base = numberFromHash(hash, (idx * 4) % 48, 6);
   const bearing = (base + idx * 47) % 360;
   const minDistance = Math.min(220, Math.max(90, radiusM * 0.14));
@@ -44,10 +53,15 @@ function makeCandidate(originLat: number, originLng: number, category: string, i
     location: offsetPoint({ lat: originLat, lng: originLng }, distance, bearing),
     publicAccessible: true,
     safety: "safe_public",
+    source: "deterministic",
   };
 }
 
-function safetyFilter(candidates: PoiCandidate[], origin: { lat: number; lng: number }, radiusM: number): PoiCandidate[] {
+function safetyFilter(
+  candidates: PoiCandidate[],
+  origin: { lat: number; lng: number },
+  radiusM: number,
+): PoiCandidate[] {
   return candidates.filter((candidate) => {
     if (!candidate.publicAccessible || candidate.safety === "blocked") return false;
     const distance = distanceMeters(origin, candidate.location);
@@ -55,47 +69,85 @@ function safetyFilter(candidates: PoiCandidate[], origin: { lat: number; lng: nu
   });
 }
 
-export async function generateOracle(request: LingYanRequest): Promise<LingYanResult> {
+export async function generateOracle(
+  request: LingYanRequest,
+  variantNonce = 0,
+): Promise<LingYanResult> {
   const intent = request.intent.trim();
   const intentClass = classifyIntent(intent);
   const radiusM = request.radiusKm * 1000;
   const day = new Date().toISOString().slice(0, 10);
-  const seedRaw = `${intent}:${request.location.lat.toFixed(3)}:${request.location.lng.toFixed(3)}:${day}:${request.radiusKm}`;
+  const seedRaw = `${intent}:${request.location.lat.toFixed(3)}:${request.location.lng.toFixed(3)}:${day}:${request.radiusKm}:${variantNonce}`;
   const hash = await sha256(seedRaw);
+
+  // 1. Try real-world nearby POIs first (Amap -> OSM -> Deterministic fallback)
+  let realCandidates = await searchAmapNearbyPois(request.location, radiusM, intentClass);
+  if (realCandidates.length === 0) {
+    realCandidates = await searchOsmNearbyPois(request.location, radiusM, intentClass);
+  }
+
   const preferred = poiPreferences[intentClass];
-  const candidates = preferred.flatMap((category, idx) =>
+  const fallbackCandidates = preferred.flatMap((category, idx) =>
     Array.from({ length: 3 }, (_, offset) =>
-      makeCandidate(request.location.lat, request.location.lng, category, idx * 3 + offset, hash, radiusM),
+      makeCandidate(
+        request.location.lat,
+        request.location.lng,
+        category,
+        idx * 3 + offset,
+        hash,
+        radiusM,
+      ),
     ),
   );
-  const safeCandidates = safetyFilter(candidates, request.location, radiusM);
+
+  const safeReal = safetyFilter(realCandidates, request.location, radiusM);
+  const safeCandidates = safeReal.length > 0 ? safeReal : safetyFilter(fallbackCandidates, request.location, radiusM);
+
   if (!safeCandidates.length) {
     throw new Error("这片区域暂时没有适合停留的灵燕栖息地，请扩大半径。");
   }
+
   const pickIndex = numberFromHash(hash, 0, 8) % safeCandidates.length;
   const selected = safeCandidates[pickIndex];
   const promptSeed = numberFromHash(hash, 8, 8);
   const windowSeconds = 5400 + (numberFromHash(hash, 16, 4) % 5400);
   const expires = new Date(Date.now() + windowSeconds * 1000);
   const coordinate = selected.location;
+  const distMeters = distanceMeters(request.location, coordinate);
+
+  const localCard = buildOracleCard(intentClass, selected.category, hash);
+  const finalCard = hasAiOracleConfig()
+    ? await generateAiOracleCard({
+        intent,
+        intentClass,
+        poiName: selected.name,
+        poiCategory: selected.category,
+        distanceMeters: distMeters,
+        fallbackCard: localCard,
+      })
+    : localCard;
+
   return {
     id: `ly_${hash.slice(0, 8)}`,
+    createdAt: new Date().toISOString(),
     intent,
     intentClass,
     coordinate,
     poi: {
       name: selected.name,
+      address: selected.address,
       category: selected.category,
-      distanceMeters: distanceMeters(request.location, coordinate),
+      distanceMeters: distMeters,
       publicAccessible: true,
+      source: selected.source ?? "deterministic",
     },
     resonanceWindow: {
       expiresAt: expires.toISOString(),
       seconds: windowSeconds,
     },
     prompt: buildQuantumPrompt(intentClass, promptSeed),
-    oracleCard: buildOracleCard(intentClass, selected.category, hash),
-    navigation: buildNavigationLinks(coordinate),
+    oracleCard: finalCard,
+    navigation: buildNavigationLinks(coordinate, selected.name),
     safety: {
       level: "safe_public",
       warnings: WARNINGS,

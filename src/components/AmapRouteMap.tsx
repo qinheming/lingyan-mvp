@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { loadAmap, toAmapLngLat } from "../lib/amap";
+import { detectAmapCity, loadAmap, toAmapLngLat } from "../lib/amap";
 import { extractAmapRouteSummary } from "../lib/routeSummary";
 import { LingYanLogo } from "./LingYanLogo";
 import type { GeoPoint, LingYanResult, RouteMode, RoutePlanStatus, RouteSummary } from "../lib/types";
@@ -100,15 +100,39 @@ export function AmapRouteMap({
         }, 4200);
 
         if (routeMode === "transit") {
-          routeResolved = true;
-          window.clearTimeout(routeTimer);
-          onRouteSummaryChange(null);
-          updateStatus({
-            mode: routeMode,
-            state: "unavailable",
-            message: "公交路线将由高德 App 基于实时城市与站点规划",
+          const city = await detectAmapCity(AMap);
+          if (cancelled) return;
+          AMap.plugin(["AMap.Transfer"], () => {
+            if (cancelled) return;
+            const transfer = new AMap.Transfer({
+              map,
+              city,
+              extensions: "all",
+            });
+            transfer.search(start, end, (routeStatus, routeResult) => {
+              routeResolved = true;
+              window.clearTimeout(routeTimer);
+              if (routeStatus === "complete") {
+                const summary = extractAmapRouteSummary(routeResult, "transit");
+                onRouteSummaryChange(summary);
+                updateStatus({
+                  mode: "transit",
+                  state: summary ? "available" : "unavailable",
+                  message: summary
+                    ? `高德公交路线已生成（${city}）`
+                    : "距离较近无需乘车，建议切换步行导航",
+                });
+              } else {
+                onRouteSummaryChange(null);
+                updateStatus({
+                  mode: "transit",
+                  state: "unavailable",
+                  message: "公交路线将由高德 App 基于实时站点规划",
+                });
+              }
+              map.setFitView();
+            });
           });
-          map.setFitView();
           return;
         }
 

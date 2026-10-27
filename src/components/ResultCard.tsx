@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { intentLabels } from "../lib/intent";
 import { hasAmapConfig } from "../lib/amap";
-import { buildNavigationGuide, formatDistance } from "../lib/navigationGuide";
+import { intentLabels } from "../lib/intent";
 import { getAmapInstallUrl, getDeviceNavigationLabel, launchAmapNavigation } from "../lib/navigation";
+import { buildNavigationGuide, formatDistance } from "../lib/navigationGuide";
+import { renderOraclePosterBlob } from "../lib/poster";
 import { formatRouteDistance } from "../lib/routeSummary";
+import { canSpeak, speakNavigation, stopSpeaking } from "../lib/speech";
+import { updateHistoryEcho } from "../lib/storage";
 import type { GeoPoint, LingYanResult, RouteMode, RoutePlanStatus, RouteSummary } from "../lib/types";
 
 type NavigationStatus = "idle" | "launching_amap" | "amap_required";
@@ -16,6 +19,7 @@ type ResultCardProps = {
   routePlanStatus: RoutePlanStatus | null;
   onRouteModeChange: (mode: RouteMode) => void;
   onLocationUpdate: (location: GeoPoint) => void;
+  onReroll: () => void;
   onReset: () => void;
 };
 
@@ -26,6 +30,12 @@ const routeModeLabels: Record<RouteMode, string> = {
 };
 
 const routeModeOptions: RouteMode[] = ["walking", "driving", "transit"];
+
+const poiSourceLabels: Record<string, string> = {
+  amap: "高德实景 POI",
+  osm: "OSM 实景地点",
+  deterministic: "空间坍缩坐标",
+};
 
 async function writeClipboardText(text: string) {
   if (navigator.clipboard) {
@@ -58,6 +68,7 @@ export function ResultCard({
   routeSummary,
   routePlanStatus,
   onRouteModeChange,
+  onReroll,
   onReset,
 }: ResultCardProps) {
   const initialSeconds = useMemo(() => {
@@ -66,9 +77,15 @@ export function ResultCard({
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [posterBusy, setPosterBusy] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
+  const [echoAnswer, setEchoAnswer] = useState("");
+  const [echoSaved, setEchoSaved] = useState(false);
   const [navigationStatus, setNavigationStatus] = useState<NavigationStatus>("idle");
   const [navigationError, setNavigationError] = useState("");
   const [activeNavigationMode, setActiveNavigationMode] = useState<RouteMode | null>(null);
+
   const guide = useMemo(() => buildNavigationGuide(userLocation, result.coordinate), [userLocation, result.coordinate]);
   const isNavigationAttemptActive = navigationStatus !== "idle";
   const isLaunchingAmap = navigationStatus === "launching_amap";
@@ -81,6 +98,7 @@ export function ResultCard({
   const amapEnabled = hasAmapConfig();
   const deviceLabel = getDeviceNavigationLabel();
   const amapInstallUrl = getAmapInstallUrl();
+  const speechAvailable = useMemo(() => canSpeak(), []);
 
   useEffect(() => {
     setSecondsLeft(initialSeconds);
@@ -94,7 +112,25 @@ export function ResultCard({
     setNavigationStatus("idle");
     setNavigationError("");
     setActiveNavigationMode(null);
+    setEchoAnswer("");
+    setEchoSaved(false);
+    setSpeaking(false);
+    stopSpeaking();
   }, [result.id]);
+
+  // Real-time mobile compass support
+  useEffect(() => {
+    function handleOrientation(event: DeviceOrientationEvent) {
+      const webkitCompass = (event as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading;
+      if (typeof webkitCompass === "number" && Number.isFinite(webkitCompass)) {
+        setDeviceHeading(webkitCompass);
+      } else if (typeof event.alpha === "number" && Number.isFinite(event.alpha)) {
+        setDeviceHeading((360 - event.alpha) % 360);
+      }
+    }
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => window.removeEventListener("deviceorientation", handleOrientation, true);
+  }, []);
 
   async function copyCoordinate() {
     const text = `${result.coordinate.lat},${result.coordinate.lng}`;
@@ -107,14 +143,51 @@ export function ResultCard({
     const text = [
       `我刚刚抽到灵燕「${result.oracleCard.title}」`,
       result.oracleCard.verse,
-      `此地一句：${result.oracleCard.placeLine}`,
+      `此地一句：${result.oracleCard.placeLine} —— ${result.oracleCard.placeLineSource}`,
       `城市任务：${result.oracleCard.task}`,
-      `坐标：${result.poi.name}`,
+      `坐标：${result.poi.name} (${result.poi.distanceMeters}m)`,
       window.location.origin,
     ].join("\n");
     await writeClipboardText(text);
     setShareCopied(true);
     window.setTimeout(() => setShareCopied(false), 1400);
+  }
+
+  async function downloadPoster() {
+    if (posterBusy) return;
+    setPosterBusy(true);
+    try {
+      const blob = await renderOraclePosterBlob(result);
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `灵燕灵签_${result.oracleCard.title}_${result.id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } finally {
+      setPosterBusy(false);
+    }
+  }
+
+  function toggleSpeak() {
+    if (speaking) {
+      stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
+    const text = `${result.oracleCard.title}。${result.oracleCard.verse}。此地一句：${result.oracleCard.placeLine}。目的地：${result.poi.name}，向${guide.direction}方向约${result.poi.distanceMeters}米。城市任务：${result.oracleCard.task}`;
+    speakNavigation(text);
+    setSpeaking(true);
+  }
+
+  function handleSaveEcho() {
+    if (!echoAnswer.trim()) return;
+    updateHistoryEcho(result.id, echoAnswer, guide.arrived);
+    setEchoSaved(true);
+    window.setTimeout(() => setEchoSaved(false), 1800);
   }
 
   function startLingYanNavigation() {
@@ -150,6 +223,9 @@ export function ResultCard({
     resetNavigationAttempt();
   }
 
+  const compassRotation =
+    deviceHeading !== null ? (guide.bearingDegrees - deviceHeading + 360) % 360 : guide.bearingDegrees;
+
   const navLabel =
     guide.arrived
       ? "已到达灵燕坐标附近"
@@ -171,7 +247,7 @@ export function ResultCard({
       ? `高德路线 ${formatRouteDistance(currentRouteSummary.distanceMeters)} · 约 ${currentRouteSummary.durationMinutes} 分钟`
       : routeMode === "walking"
         ? `剩余 ${formatDistance(guide.distanceMeters)} · 步行估算 ${guide.etaMinutes} 分钟`
-      : `直线距离 ${formatDistance(guide.distanceMeters)} · 等待高德${routeModeLabels[routeMode]}路线`;
+        : `直线距离 ${formatDistance(guide.distanceMeters)} · 等待高德${routeModeLabels[routeMode]}路线`;
   const primaryActionText =
     navigationStatus === "launching_amap"
       ? "正在打开高德..."
@@ -186,34 +262,47 @@ export function ResultCard({
           ? `正在规划高德${routeModeLabels[routeMode]}路线...`
           : `正在等待高德${routeModeLabels[routeMode]}路线摘要，暂以直线方向辅助`;
 
+  const sourceBadge = poiSourceLabels[result.poi.source ?? "deterministic"] ?? "公开可达";
+
   return (
     <aside className="result-card">
       <div className="result-summary">
         <div className="result-topline">
-          <span>{intentLabels[result.intentClass]}</span>
+          <span>
+            {intentLabels[result.intentClass]} · {sourceBadge}
+            {result.oracleCard.aiGenerated ? " · AI灵签" : ""}
+          </span>
           <strong>{formatCountdown(secondsLeft)}</strong>
         </div>
         <h2>{result.poi.name}</h2>
         <p className="result-meta">
-          生成距离 {result.poi.distanceMeters}m · {result.poi.publicAccessible ? "公开可达" : "可达性未知"} · {result.seed}
+          生成距离 {result.poi.distanceMeters}m
+          {result.poi.address ? ` · ${result.poi.address}` : ""} · {result.seed}
         </p>
         <p className="mobile-place-line">
           {result.oracleCard.placeLine} <span>{result.oracleCard.placeLineSource}</span>
         </p>
         <div className="coordinate-grid">
           <div>
-            <span>纬度</span>
+            <span>纬度 (GCJ-02)</span>
             <b>{result.coordinate.lat.toFixed(6)}</b>
           </div>
           <div>
-            <span>经度</span>
+            <span>经度 (GCJ-02)</span>
             <b>{result.coordinate.lng.toFixed(6)}</b>
           </div>
         </div>
       </div>
 
       <div className="prompt-box">
-        <span>今日灵签</span>
+        <div className="prompt-header-row">
+          <span>今日灵签</span>
+          {speechAvailable && (
+            <button type="button" className="voice-chip" onClick={toggleSpeak}>
+              {speaking ? "停止朗读" : "语音读签"}
+            </button>
+          )}
+        </div>
         <h3>{result.oracleCard.title}</h3>
         <p>{result.oracleCard.verse}</p>
         <blockquote className="place-line">
@@ -226,11 +315,30 @@ export function ResultCard({
           <p>{result.oracleCard.task}</p>
           <b>灵燕回声</b>
           <p>{result.oracleCard.echoQuestion}</p>
+          <div className="echo-input-row">
+            <input
+              type="text"
+              value={echoAnswer}
+              maxLength={60}
+              placeholder="写下你的此刻回声..."
+              onChange={(e) => setEchoAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveEcho();
+              }}
+            />
+            <button type="button" onClick={handleSaveEcho}>
+              {echoSaved ? "已封存" : "留痕"}
+            </button>
+          </div>
         </div>
       </div>
 
       <div className={`navigation-panel ${isNavigationAttemptActive ? "active" : ""} status-${navigationStatus}`}>
-        <div className="navigation-compass" style={{ transform: `rotate(${guide.bearingDegrees}deg)` }}>
+        <div
+          className="navigation-compass"
+          style={{ transform: `rotate(${compassRotation}deg)` }}
+          title={deviceHeading !== null ? "已启用手机实时陀螺仪罗盘" : "目标相对正北方向"}
+        >
           ↑
         </div>
         <div>
@@ -279,11 +387,17 @@ export function ResultCard({
             取消
           </button>
         )}
+        <button type="button" onClick={() => void downloadPoster()} disabled={posterBusy}>
+          {posterBusy ? "生成中..." : "灵签海报"}
+        </button>
+        <button type="button" onClick={() => void copyShareText()}>
+          {shareCopied ? "已复制" : "分享文案"}
+        </button>
         <button type="button" onClick={copyCoordinate}>
           {copied ? "已复制" : "复制坐标"}
         </button>
-        <button type="button" onClick={() => void copyShareText()}>
-          {shareCopied ? "已复制" : "复制分享文案"}
+        <button type="button" onClick={onReroll}>
+          换一处栖息地
         </button>
         <button type="button" onClick={onReset}>
           重新呼唤

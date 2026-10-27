@@ -1,17 +1,33 @@
-import { useCallback, useState } from "react";
-import { CollapseCanvas } from "./components/CollapseCanvas";
+import { useCallback, useEffect, useState } from "react";
 import { AmapRouteMap } from "./components/AmapRouteMap";
+import { CollapseCanvas } from "./components/CollapseCanvas";
 import { IntentPanel } from "./components/IntentPanel";
 import { LingYanLogo } from "./components/LingYanLogo";
 import { OracleMap } from "./components/OracleMap";
 import { ResultCard } from "./components/ResultCard";
 import { SafetyNotice } from "./components/SafetyNotice";
 import { WechatBrowserNotice } from "./components/WechatBrowserNotice";
-import { playAmbientTone } from "./lib/audio";
 import { hasAmapConfig } from "./lib/amap";
+import { playAmbientTone } from "./lib/audio";
 import { getBrowserLocation } from "./lib/geo";
 import { generateOracle } from "./lib/oracle";
-import type { AppState, GeoPoint, LingYanResult, RadiusKm, RouteMode, RoutePlanStatus, RouteSummary } from "./lib/types";
+import {
+  clearActiveOracle,
+  loadActiveOracle,
+  loadOracleHistory,
+  recordOracleToHistory,
+  saveActiveOracle,
+} from "./lib/storage";
+import type {
+  AppState,
+  GeoPoint,
+  LingYanResult,
+  OracleHistoryEntry,
+  RadiusKm,
+  RouteMode,
+  RoutePlanStatus,
+  RouteSummary,
+} from "./lib/types";
 
 const DEMO_LOCATION: GeoPoint = {
   lat: 31.230416,
@@ -31,7 +47,24 @@ export function App() {
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [routePlanStatus, setRoutePlanStatus] = useState<RoutePlanStatus | null>(null);
   const [result, setResult] = useState<LingYanResult | null>(null);
+  const [variantNonce, setVariantNonce] = useState(0);
+  const [history, setHistory] = useState<OracleHistoryEntry[]>([]);
+
   const isBusy = state === "locating" || state === "collapsing";
+
+  // Restore active non-expired oracle & history on mount
+  useEffect(() => {
+    setHistory(loadOracleHistory());
+    const stored = loadActiveOracle();
+    if (stored) {
+      setIntent(stored.result.intent);
+      setUserLocation(stored.userLocation);
+      setNavigationLocation(stored.userLocation);
+      setResult(stored.result);
+      setState("result");
+    }
+  }, []);
+
   const handleNavigationLocationUpdate = useCallback((location: GeoPoint) => {
     setNavigationLocation(location);
   }, []);
@@ -42,7 +75,7 @@ export function App() {
     setRoutePlanStatus(status);
   }, []);
 
-  async function summonLingYan(useDemoLocation = false) {
+  async function summonLingYan(useDemoLocation = false, nextNonce = 0) {
     const cleanIntent = intent.trim();
     if (!cleanIntent) {
       setError("请输入一个念头。");
@@ -61,19 +94,30 @@ export function App() {
     playAmbientTone();
 
     try {
-      const location = useDemoLocation ? DEMO_LOCATION : await getBrowserLocation();
+      const location =
+        useDemoLocation
+          ? DEMO_LOCATION
+          : userLocation && nextNonce > 0
+            ? userLocation
+            : await getBrowserLocation();
       setUserLocation(location);
       setNavigationLocation(location);
       setState("collapsing");
       const [oracle] = await Promise.all([
-        generateOracle({
-          intent: cleanIntent,
-          radiusKm,
-          location,
-        }),
-        sleep(3600),
+        generateOracle(
+          {
+            intent: cleanIntent,
+            radiusKm,
+            location,
+          },
+          nextNonce,
+        ),
+        sleep(nextNonce > 0 ? 1800 : 3200),
       ]);
       setResult(oracle);
+      setVariantNonce(nextNonce);
+      saveActiveOracle(oracle, location);
+      setHistory(recordOracleToHistory(oracle));
       setState("result");
     } catch (err) {
       setState("input");
@@ -81,7 +125,14 @@ export function App() {
     }
   }
 
+  function rerollLocation() {
+    const next = variantNonce + 1;
+    void summonLingYan(false, next);
+  }
+
   function reset() {
+    clearActiveOracle();
+    setHistory(loadOracleHistory());
     setState("input");
     setError("");
     setResult(null);
@@ -104,12 +155,13 @@ export function App() {
               radiusKm={radiusKm}
               isBusy={isBusy}
               error={error}
+              history={history}
               onIntentChange={setIntent}
               onRadiusChange={setRadiusKm}
-              onSubmit={() => void summonLingYan(false)}
+              onSubmit={() => void summonLingYan(false, 0)}
             />
             {error && (
-              <button className="demo-location-button" type="button" onClick={() => void summonLingYan(true)}>
+              <button className="demo-location-button" type="button" onClick={() => void summonLingYan(true, 0)}>
                 使用演示位置继续
               </button>
             )}
@@ -137,6 +189,7 @@ export function App() {
                   routePlanStatus={routePlanStatus}
                   onRouteModeChange={setRouteMode}
                   onLocationUpdate={handleNavigationLocationUpdate}
+                  onReroll={rerollLocation}
                   onReset={reset}
                 />
               </>
