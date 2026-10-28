@@ -141,57 +141,63 @@ export async function searchOsmNearbyPois(
     unknown: `way["leisure"="park"](around:${r},${wgsOrigin.lat},${wgsOrigin.lng});node["amenity"~"cafe|library"](around:${r},${wgsOrigin.lat},${wgsOrigin.lng});node["shop"="books"](around:${r},${wgsOrigin.lat},${wgsOrigin.lng});`,
   };
 
-  const overpassQuery = `[out:json][timeout:3];(${queryByIntent[intentClass] ?? queryByIntent.unknown});out center 20;`;
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 2400);
+  const overpassQuery = `[out:json][timeout:4];(${queryByIntent[intentClass] ?? queryByIntent.unknown});out center 24;`;
+  const endpoints = [
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+  ];
 
-  try {
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: `data=${encodeURIComponent(overpassQuery)}`,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-      },
-      signal: controller.signal,
-    });
-    window.clearTimeout(timer);
-    if (!response.ok) return [];
-    const data = (await response.json()) as { elements?: OverpassElement[] };
-    const elements = data.elements ?? [];
-    const candidates: PoiCandidate[] = [];
-
-    for (const el of elements) {
-      const rawLat = el.lat ?? el.center?.lat;
-      const rawLon = el.lon ?? el.center?.lon;
-      if (!rawLat || !rawLon) continue;
-      const tags = el.tags ?? {};
-      const name = tags["name:zh"] || tags.name;
-      if (!name) continue;
-      const gcjLoc = wgs84ToGcj02({ lat: rawLat, lng: rawLon });
-      const dist = distanceMeters(originGcj02, gcjLoc);
-      if (dist < 60 || dist > radiusMeters) continue;
-
-      let category = inferCategory(name);
-      if (tags.shop === "books" || tags.amenity === "library") category = "bookstore";
-      else if (tags.amenity === "cafe") category = "cafe";
-      else if (tags.tourism === "museum") category = "museum";
-      else if (tags.tourism === "gallery") category = "gallery";
-      else if (tags.leisure === "park" || tags.leisure === "garden") category = "park";
-
-      candidates.push({
-        id: `osm_${el.id}`,
-        name,
-        address: tags["addr:street"] ? `${tags["addr:street"]}${tags["addr:housenumber"] ?? ""}` : undefined,
-        category,
-        location: gcjLoc,
-        publicAccessible: true,
-        safety: "safe_public",
-        source: "osm",
+  for (const endpoint of endpoints) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 2800);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        body: `data=${encodeURIComponent(overpassQuery)}`,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        },
+        signal: controller.signal,
       });
+      window.clearTimeout(timer);
+      if (!response.ok) continue;
+      const data = (await response.json()) as { elements?: OverpassElement[] };
+      const elements = data.elements ?? [];
+      const candidates: PoiCandidate[] = [];
+
+      for (const el of elements) {
+        const rawLat = el.lat ?? el.center?.lat;
+        const rawLon = el.lon ?? el.center?.lon;
+        if (!rawLat || !rawLon) continue;
+        const tags = el.tags ?? {};
+        const name = tags["name:zh"] || tags.name;
+        if (!name) continue;
+        const gcjLoc = wgs84ToGcj02({ lat: rawLat, lng: rawLon });
+        const dist = distanceMeters(originGcj02, gcjLoc);
+        if (dist < 60 || dist > radiusMeters) continue;
+
+        let category = inferCategory(name);
+        if (tags.shop === "books" || tags.amenity === "library") category = "bookstore";
+        else if (tags.amenity === "cafe") category = "cafe";
+        else if (tags.tourism === "museum") category = "museum";
+        else if (tags.tourism === "gallery") category = "gallery";
+        else if (tags.leisure === "park" || tags.leisure === "garden") category = "park";
+
+        candidates.push({
+          id: `osm_${el.id}`,
+          name,
+          address: tags["addr:street"] ? `${tags["addr:street"]}${tags["addr:housenumber"] ?? ""}` : undefined,
+          category,
+          location: gcjLoc,
+          publicAccessible: true,
+          safety: "safe_public",
+          source: "osm",
+        });
+      }
+      if (candidates.length > 0) return candidates;
+    } catch {
+      window.clearTimeout(timer);
     }
-    return candidates;
-  } catch {
-    window.clearTimeout(timer);
-    return [];
   }
+  return [];
 }

@@ -252,15 +252,13 @@ export function ResultCard({
     navigationStatus === "launching_amap"
       ? "正在打开高德..."
       : `打开高德${routeModeLabels[routeMode]}导航`;
-  const routeStatusText = !amapEnabled
-    ? "完整导航由高德 App 提供；配置高德 Key 后可在灵燕内显示路线预览"
-    : hasRouteForMode
-      ? `高德${routeModeLabels[routeMode]}路线已生成，点击按钮进入${deviceLabel}高德 App 原生导航`
-      : routeUnavailable
-        ? `高德${routeModeLabels[routeMode]}路线不可用。已显示直线方向，建议切换步行或重新呼唤`
-        : currentRoutePlanStatus?.state === "loading"
-          ? `正在规划高德${routeModeLabels[routeMode]}路线...`
-          : `正在等待高德${routeModeLabels[routeMode]}路线摘要，暂以直线方向辅助`;
+  const routeStatusText = hasRouteForMode
+    ? `高德${routeModeLabels[routeMode]}路线已生成，点击下方按钮一键唤起高德导航`
+    : routeUnavailable
+      ? `高德${routeModeLabels[routeMode]}路线不可用。已显示直线方向，建议切换步行或重新呼唤`
+      : currentRoutePlanStatus?.state === "loading"
+        ? `正在规划高德${routeModeLabels[routeMode]}路线...`
+        : `高德${routeModeLabels[routeMode]}路线已就绪，点击下方按钮开始导航`;
 
   const sourceBadge = poiSourceLabels[result.poi.source ?? "deterministic"] ?? "公开可达";
 

@@ -192,17 +192,22 @@ export function launchAmapNavigation({
     finish(openedNative);
   }, timeoutMs);
 
+  if (!isIosDevice() && !isAndroidDevice()) {
+    const webUrl = buildAmapUniversalNavigationUrl({
+      origin,
+      destination,
+      mode,
+      label,
+      originLabel,
+    });
+    window.open(webUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => finish(true), 120);
+    return cleanup;
+  }
+
   window.location.href = isIosDevice()
     ? buildAmapNativeNavigationUrl(destination, mode, label, origin, originLabel)
-    : isAndroidDevice()
-      ? buildAmapAndroidNavigationUrl(destination, mode, label, origin, originLabel)
-    : buildAmapUniversalNavigationUrl({
-        origin,
-        destination,
-        mode,
-        label,
-        originLabel,
-      });
+    : buildAmapAndroidNavigationUrl(destination, mode, label, origin, originLabel);
 
   return cleanup;
 }

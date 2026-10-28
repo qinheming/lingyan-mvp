@@ -179,7 +179,13 @@ export function App() {
                     onRoutePlanStatusChange={handleRoutePlanStatusChange}
                   />
                 ) : (
-                  <OracleMap userLocation={navigationLocation ?? userLocation} result={result} />
+                  <OracleMap
+                    userLocation={navigationLocation ?? userLocation}
+                    result={result}
+                    routeMode={routeMode}
+                    onRouteSummaryChange={handleRouteSummaryChange}
+                    onRoutePlanStatusChange={handleRoutePlanStatusChange}
+                  />
                 )}
                 <ResultCard
                   result={result}
